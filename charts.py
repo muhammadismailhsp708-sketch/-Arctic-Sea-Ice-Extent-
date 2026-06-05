@@ -1,187 +1,159 @@
-import pandas as pd
-import numpy as np
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
+import numpy as np
+import pandas as pd
 
-# ── Global Style ──────────────────────────────────────────────────────────────
+# ── Consistent color palette ──────────────────────────────────────────────────
 PALETTE = "Blues_r"
-PRIMARY   = "#1a6fa8"
-SECONDARY = "#e05c2a"
-BG        = "#f4f8fc"
-ACCENT    = "#2ca02c"
-sns.set_theme(style="whitegrid", palette="Blues_r")
-plt.rcParams.update({
-    "figure.facecolor": BG,
-    "axes.facecolor":   BG,
-    "axes.titlesize":   13,
-    "axes.labelsize":   11,
-    "xtick.labelsize":  9,
-    "ytick.labelsize":  9,
-})
+ACCENT  = "#1565C0"
+ACCENT2 = "#EF5350"
+BG      = "#F0F4F8"
+GRID    = "#CFD8DC"
+
+def _style(ax, title, xlabel="", ylabel=""):
+    ax.set_title(title, fontsize=13, fontweight='bold', pad=10, color="#1A237E")
+    ax.set_xlabel(xlabel, fontsize=10, color="#37474F")
+    ax.set_ylabel(ylabel, fontsize=10, color="#37474F")
+    ax.tick_params(colors="#37474F", labelsize=9)
+    ax.grid(True, linestyle='--', linewidth=0.5, color=GRID, alpha=0.7)
+    ax.set_facecolor(BG)
+    for spine in ax.spines.values():
+        spine.set_edgecolor(GRID)
 
 
-def _save_tight(fig):
+def line_chart(df):
+    """Line chart: Sea ice extent trend over years."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(df['year'], df['extent'], color=ACCENT, linewidth=2, marker='o', markersize=4, label='Extent')
+    ax.plot(df['year'], df['rolling_avg'], color=ACCENT2, linewidth=1.5, linestyle='--', label='5-yr Rolling Avg')
+    _style(ax, "Arctic Sea Ice Extent Over Time", "Year", "Extent (million km²)")
+    ax.legend(fontsize=9)
     fig.tight_layout()
     return fig
 
 
-# 1. PIE CHART ─────────────────────────────────────────────────────────────────
-def chart_pie(df: pd.DataFrame):
-    counts = df["extent_category"].value_counts()
-    fig, ax = plt.subplots(figsize=(5, 4))
-    colors = [PRIMARY, SECONDARY]
-    wedges, texts, autotexts = ax.pie(
-        counts, labels=counts.index, autopct="%1.1f%%",
-        colors=colors, startangle=140,
-        wedgeprops={"edgecolor": "white", "linewidth": 1.5}
-    )
-    for at in autotexts:
-        at.set_fontsize(10)
-    ax.set_title("Distribution: Above vs Below Median Extent", fontweight="bold")
-    return _save_tight(fig)
-
-
-# 2. HISTOGRAM ─────────────────────────────────────────────────────────────────
-def chart_histogram(df: pd.DataFrame):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(df["extent"], bins=10, color=PRIMARY, edgecolor="white", linewidth=0.8)
-    ax.set_xlabel("Sea Ice Extent (million km²)")
-    ax.set_ylabel("Frequency")
-    ax.set_title("Frequency Distribution of Sea Ice Extent", fontweight="bold")
-    ax.axvline(df["extent"].mean(), color=SECONDARY, linestyle="--", label=f"Mean: {df['extent'].mean():.2f}")
-    ax.legend()
-    return _save_tight(fig)
-
-
-# 3. LINE CHART ────────────────────────────────────────────────────────────────
-def chart_line(df: pd.DataFrame):
+def area_chart(df):
+    """Area chart: Cumulative ice extent trend."""
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(df["year"], df["extent"], color=PRIMARY, linewidth=2, marker="o", markersize=3, label="Annual Extent")
-    ax.plot(df["year"], df["rolling_avg_5yr"], color=SECONDARY, linewidth=2, linestyle="--", label="5-yr Rolling Avg")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Sea Ice Extent (million km²)")
-    ax.set_title("Arctic Sea Ice Extent Over Time", fontweight="bold")
-    ax.legend()
-    ax.xaxis.set_major_locator(mticker.MultipleLocator(5))
-    return _save_tight(fig)
+    ax.fill_between(df['year'], df['extent'], alpha=0.4, color=ACCENT, label='Extent')
+    ax.plot(df['year'], df['extent'], color=ACCENT, linewidth=1.5)
+    _style(ax, "Area Chart: Ice Extent Over Time", "Year", "Extent (million km²)")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    return fig
 
 
-# 4. BAR CHART ─────────────────────────────────────────────────────────────────
-def chart_bar(df: pd.DataFrame):
-    decade_avg = df.groupby("decade")["extent"].mean().reset_index()
+def bar_chart(df):
+    """Bar chart: Average extent by decade."""
+    decade_avg = df.groupby('decade_label')['extent'].mean().reset_index()
     fig, ax = plt.subplots(figsize=(7, 4))
     colors = sns.color_palette(PALETTE, len(decade_avg))
-    bars = ax.bar(decade_avg["decade"], decade_avg["extent"], color=colors, edgecolor="white", linewidth=0.8)
-    ax.set_xlabel("Decade")
-    ax.set_ylabel("Average Extent (million km²)")
-    ax.set_title("Average Sea Ice Extent by Decade", fontweight="bold")
+    bars = ax.bar(decade_avg['decade_label'], decade_avg['extent'], color=colors, edgecolor='white', width=0.6)
     for bar in bars:
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.04,
-                f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
-    return _save_tight(fig)
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
+                f"{bar.get_height():.2f}", ha='center', va='bottom', fontsize=8, color="#37474F")
+    _style(ax, "Average Ice Extent by Decade", "Decade", "Avg Extent (million km²)")
+    fig.tight_layout()
+    return fig
 
 
-# 5. SCATTER PLOT ──────────────────────────────────────────────────────────────
-def chart_scatter(df: pd.DataFrame):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sc = ax.scatter(df["year"], df["extent"], c=df["extent"], cmap="RdYlBu",
-                    s=60, edgecolors="white", linewidth=0.5, zorder=3)
-    plt.colorbar(sc, ax=ax, label="Extent (million km²)")
+def histogram(df):
+    """Histogram: Frequency distribution of extent values."""
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.hist(df['extent'], bins=12, color=ACCENT, edgecolor='white', alpha=0.85)
+    ax.axvline(df['extent'].mean(), color=ACCENT2, linestyle='--', linewidth=1.5, label=f"Mean: {df['extent'].mean():.2f}")
+    _style(ax, "Distribution of Ice Extent Values", "Extent (million km²)", "Frequency")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
+def scatter_plot(df):
+    """Scatter plot: Year vs Extent with trend line."""
+    fig, ax = plt.subplots(figsize=(7, 4))
+    sc = ax.scatter(df['year'], df['extent'], c=df['extent'], cmap='Blues_r', s=60, edgecolors='white', linewidth=0.5, zorder=3)
     # Trend line
-    z = np.polyfit(df["year"], df["extent"], 1)
+    z = np.polyfit(df['year'], df['extent'], 1)
     p = np.poly1d(z)
-    ax.plot(df["year"], p(df["year"]), color=SECONDARY, linestyle="--", linewidth=1.5, label="Trend")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Sea Ice Extent (million km²)")
-    ax.set_title("Year vs Sea Ice Extent (with Trend)", fontweight="bold")
-    ax.legend()
-    return _save_tight(fig)
+    ax.plot(df['year'], p(df['year']), color=ACCENT2, linestyle='--', linewidth=1.5, label='Trend Line')
+    plt.colorbar(sc, ax=ax, label='Extent')
+    _style(ax, "Year vs Ice Extent (Scatter)", "Year", "Extent (million km²)")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    return fig
 
 
-# 6. BOX PLOT ──────────────────────────────────────────────────────────────────
-def chart_box(df: pd.DataFrame):
-    era_order = ["Pre-1990", "1990s", "2000s", "2010s+"]
-    era_order = [e for e in era_order if e in df["era"].unique()]
+def box_plot(df):
+    """Box plot: Extent distribution per era."""
     fig, ax = plt.subplots(figsize=(7, 4))
-    data_by_era = [df[df["era"] == e]["extent"].values for e in era_order]
-    bp = ax.boxplot(data_by_era, labels=era_order, patch_artist=True,
-                    boxprops=dict(facecolor=PRIMARY, alpha=0.7),
-                    medianprops=dict(color=SECONDARY, linewidth=2),
-                    whiskerprops=dict(color=PRIMARY),
-                    capprops=dict(color=PRIMARY))
-    ax.set_xlabel("Era")
-    ax.set_ylabel("Sea Ice Extent (million km²)")
-    ax.set_title("Sea Ice Extent Distribution by Era (Box Plot)", fontweight="bold")
-    return _save_tight(fig)
+    eras = df['era'].dropna().unique().tolist()
+    data_by_era = [df[df['era'] == e]['extent'].values for e in eras]
+    bp = ax.boxplot(data_by_era, labels=eras, patch_artist=True, notch=False,
+                    medianprops=dict(color=ACCENT2, linewidth=2))
+    colors = sns.color_palette(PALETTE, len(eras))
+    for patch, color in zip(bp['boxes'], colors):
+        patch.set_facecolor(color)
+    _style(ax, "Ice Extent Distribution by Era", "Era", "Extent (million km²)")
+    fig.tight_layout()
+    return fig
 
 
-# 7. HEATMAP ───────────────────────────────────────────────────────────────────
-def chart_heatmap(df: pd.DataFrame):
-    num_cols = ["year", "extent", "change_from_prev", "rolling_avg_5yr", "pct_change", "anomaly"]
-    corr = df[num_cols].dropna().corr()
+def pie_chart(df):
+    """Pie chart: Proportion of years above/below mean extent."""
+    mean_val = df['extent'].mean()
+    above = (df['extent'] >= mean_val).sum()
+    below = (df['extent'] < mean_val).sum()
+    fig, ax = plt.subplots(figsize=(5, 5))
+    wedges, texts, autotexts = ax.pie(
+        [above, below],
+        labels=['Above Average', 'Below Average'],
+        autopct='%1.1f%%',
+        colors=[ACCENT, ACCENT2],
+        startangle=90,
+        wedgeprops=dict(edgecolor='white', linewidth=2)
+    )
+    for t in autotexts:
+        t.set_fontsize(10)
+    ax.set_title("Years Above vs Below Average Extent", fontsize=13, fontweight='bold', color="#1A237E", pad=12)
+    fig.tight_layout()
+    return fig
+
+
+def heatmap(df):
+    """Heatmap: Correlation matrix of all numerical features."""
+    num_cols = ['year', 'extent', 'rolling_avg', 'yoy_change', 'yoy_pct_change', 'anomaly']
+    corr = df[num_cols].corr()
     fig, ax = plt.subplots(figsize=(7, 5))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", ax=ax,
-                linewidths=0.5, square=True, annot_kws={"size": 9},
-                vmin=-1, vmax=1)
-    ax.set_title("Feature Correlation Heatmap", fontweight="bold")
-    return _save_tight(fig)
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap='Blues', ax=ax,
+                linewidths=0.5, linecolor='white', annot_kws={"size": 9})
+    ax.set_title("Correlation Heatmap of Features", fontsize=13, fontweight='bold', color="#1A237E", pad=10)
+    fig.tight_layout()
+    return fig
 
 
-# 8. AREA CHART ────────────────────────────────────────────────────────────────
-def chart_area(df: pd.DataFrame):
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.fill_between(df["year"], df["extent"], alpha=0.4, color=PRIMARY, label="Extent")
-    ax.plot(df["year"], df["extent"], color=PRIMARY, linewidth=1.5)
-    ax.fill_between(df["year"], df["rolling_avg_5yr"], alpha=0.3, color=SECONDARY, label="5-yr Avg")
-    ax.plot(df["year"], df["rolling_avg_5yr"], color=SECONDARY, linewidth=1.5, linestyle="--")
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Sea Ice Extent (million km²)")
-    ax.set_title("Cumulative Area Chart: Extent Over Time", fontweight="bold")
-    ax.legend()
-    ax.xaxis.set_major_locator(mticker.MultipleLocator(5))
-    return _save_tight(fig)
+def count_plot(df):
+    """Count plot: Number of years per trend direction (Increase/Decrease)."""
+    fig, ax = plt.subplots(figsize=(6, 4))
+    order = ['Increase', 'Decrease', 'No Change']
+    order = [o for o in order if o in df['trend'].values]
+    palette = {'Increase': '#42A5F5', 'Decrease': ACCENT2, 'No Change': '#B0BEC5'}
+    sns.countplot(data=df, x='trend', ax=ax, order=order,
+                  palette={k: palette[k] for k in order if k in palette})
+    _style(ax, "Year-over-Year Trend Direction Count", "Trend Direction", "Number of Years")
+    for p in ax.patches:
+        ax.annotate(f'{int(p.get_height())}', (p.get_x() + p.get_width()/2., p.get_height()),
+                    ha='center', va='bottom', fontsize=10)
+    fig.tight_layout()
+    return fig
 
 
-# 9. COUNT PLOT ────────────────────────────────────────────────────────────────
-def chart_count(df: pd.DataFrame):
+def violin_plot(df):
+    """Violin plot: Extent distribution per era."""
     fig, ax = plt.subplots(figsize=(7, 4))
-    era_order = ["Pre-1990", "1990s", "2000s", "2010s+"]
-    era_order = [e for e in era_order if e in df["era"].unique()]
-    counts = df["era"].value_counts().reindex(era_order).fillna(0)
-    colors = sns.color_palette(PALETTE, len(era_order))
-    bars = ax.bar(counts.index, counts.values, color=colors, edgecolor="white", linewidth=0.8)
-    for bar in bars:
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
-                int(bar.get_height()), ha="center", va="bottom", fontsize=10)
-    ax.set_xlabel("Era")
-    ax.set_ylabel("Number of Years")
-    ax.set_title("Count of Observations per Era", fontweight="bold")
-    return _save_tight(fig)
-
-
-# 10. VIOLIN PLOT ──────────────────────────────────────────────────────────────
-def chart_violin(df: pd.DataFrame):
-    era_order = ["Pre-1990", "1990s", "2000s", "2010s+"]
-    era_order = [e for e in era_order if e in df["era"].unique()]
-    fig, ax = plt.subplots(figsize=(7, 4))
-    plot_df = df[df["era"].isin(era_order)].copy()
-    sns.violinplot(data=plot_df, x="era", y="extent", order=era_order,
-                   palette="Blues", inner="box", ax=ax)
-    ax.set_xlabel("Era")
-    ax.set_ylabel("Sea Ice Extent (million km²)")
-    ax.set_title("Extent Distribution & Density by Era (Violin Plot)", fontweight="bold")
-    return _save_tight(fig)
-
-
-# BONUS: PAIR PLOT (returns figure separately) ────────────────────────────────
-def chart_pair(df: pd.DataFrame):
-    num_cols = ["year", "extent", "anomaly", "rolling_avg_5yr"]
-    plot_df = df[num_cols + ["extent_category"]].dropna()
-    g = sns.pairplot(plot_df, hue="extent_category", palette={
-        "Above Median": PRIMARY, "Below Median": SECONDARY
-    }, plot_kws={"alpha": 0.7, "s": 40}, diag_kind="kde")
-    g.fig.suptitle("Pair Plot of Key Numerical Features", y=1.02, fontweight="bold")
-    return g.fig
+    df_clean = df.dropna(subset=['era'])
+    sns.violinplot(data=df_clean, x='era', y='extent', ax=ax,
+                   palette=PALETTE, inner='box', linewidth=1.2)
+    _style(ax, "Violin Plot: Extent Distribution by Era", "Era", "Extent (million km²)")
+    fig.tight_layout()
+    return fig
